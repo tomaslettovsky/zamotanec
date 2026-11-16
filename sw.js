@@ -1,5 +1,5 @@
 // Zamotanec: offline mezipaměť. Při změně souborů zvýšit VERSION.
-const VERSION = 'zamotanec-v2';
+const VERSION = 'zamotanec-v3';
 const FILES = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const FILES = [
   './img/icon-512.png',
   './img/icon-maskable-512.png',
   './img/favicon-32.png',
+  './media/awake.mp4',
 ];
 
 self.addEventListener('install', (event) => {
@@ -27,11 +28,14 @@ self.addEventListener('activate', (event) => {
 // Nejdřív síť (aby se projevily úpravy), bez signálu mezipaměť.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (event.request.headers.has('range')) return; // video: nechat na prohlížeči
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(VERSION).then((cache) => cache.put(event.request, copy));
+        if (response.ok && response.status === 200) {
+          const copy = response.clone();
+          caches.open(VERSION).then((cache) => cache.put(event.request, copy)).catch(() => {});
+        }
         return response;
       })
       .catch(() => caches.match(event.request, { ignoreSearch: true }))

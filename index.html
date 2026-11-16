@@ -146,6 +146,11 @@
     padding: 0 20px calc(env(safe-area-inset-bottom) + 22px);
     text-align: center; font-size: 16px; font-weight: 700; opacity: .8;
   }
+  .awake-status { margin-top: 6px; font-size: 12px; font-weight: 600; opacity: .75; }
+  #awakeVideo {
+    position: fixed; left: 0; bottom: 0; width: 2px; height: 2px;
+    opacity: 0.01; pointer-events: none; z-index: -1;
+  }
   .paused-badge {
     position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 70px); transform: translateX(-50%);
     background: var(--dark); color: #fff; padding: 18px 30px; border-radius: 16px;
@@ -221,9 +226,14 @@
     <div class="color-name" id="colorText"></div>
   </div>
 
-  <div class="bottombar" id="bottomText"></div>
+  <div class="bottombar">
+    <div id="bottomText"></div>
+    <div class="awake-status" id="awakeStatus"></div>
+  </div>
   <div class="paused-badge hidden" id="pausedBadge">Pauza</div>
 </section>
+
+<video id="awakeVideo" playsinline muted loop preload="auto" aria-hidden="true"></video>
 
 <script>
 (() => {
@@ -314,16 +324,71 @@
   });
 
   // ---------- Displej nezhasíná ----------
+  // Dvě metody zároveň: Screen Wake Lock API a záložní tiché video ve smyčce.
+  // Stav obou se ukazuje dole na herní obrazovce (diagnostika).
+  const awakeVideo = $('awakeVideo');
   let wakeLock = null;
-  async function lockScreen() {
-    try {
-      if ('wakeLock' in navigator && !wakeLock) {
-        wakeLock = await navigator.wakeLock.request('screen');
-        wakeLock.addEventListener('release', () => { wakeLock = null; });
-      }
-    } catch (e) { wakeLock = null; }
+  let lockState = 'nezkoušeno';
+  let videoState = 'stojí';
+
+  function renderAwake() {
+    const el = $('awakeStatus');
+    if (el) el.textContent = 'Displej · zámek: ' + lockState + ' · video: ' + videoState;
   }
-  function unlockScreen() { try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null; }
+
+  async function requestLock() {
+    if (!('wakeLock' in navigator)) { lockState = 'nepodporováno'; renderAwake(); return; }
+    if (wakeLock && !wakeLock.released) { lockState = 'aktivní'; renderAwake(); return; }
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      lockState = 'aktivní';
+      wakeLock.addEventListener('release', () => {
+        wakeLock = null;
+        lockState = 'uvolněn';
+        renderAwake();
+        if (running && document.visibilityState === 'visible') requestLock();
+      });
+    } catch (e) {
+      wakeLock = null;
+      lockState = 'odmítnut (' + (e && e.name ? e.name : 'chyba') + ')';
+    }
+    renderAwake();
+  }
+
+  function playVideo() {
+    try {
+      const p = awakeVideo.play();
+      if (p && p.then) {
+        p.then(() => { videoState = 'běží'; renderAwake(); })
+         .catch((e) => { videoState = 'nejde (' + (e && e.name ? e.name : 'chyba') + ')'; renderAwake(); });
+      } else { videoState = 'běží'; renderAwake(); }
+    } catch (e) { videoState = 'nejde'; renderAwake(); }
+  }
+
+  function keepAwake() {
+    // Volá se z klepnutí (Start, klepnutí ve hře) i po návratu do appky.
+    requestLock();
+    if (awakeVideo.paused) playVideo();
+  }
+
+  function releaseAwake() {
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    lockState = 'nezkoušeno';
+    try { awakeVideo.pause(); } catch (e) {}
+    videoState = 'stojí';
+    renderAwake();
+  }
+
+  // Video jako blob: funguje i offline (Safari u videa chce rozsahové požadavky, blob je umí).
+  fetch('media/awake.mp4')
+    .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
+    .then(b => { awakeVideo.src = URL.createObjectURL(b); })
+    .catch(() => { awakeVideo.src = 'media/awake.mp4'; });
+
+  awakeVideo.addEventListener('pause', () => {
+    if (running) { videoState = 'pozastaveno'; renderAwake(); }
+  });
 
   // ---------- Hra ----------
   let last = null, timerId = null, running = false, paused = false;
@@ -365,16 +430,16 @@
     gameEl.classList.remove('hidden');
     pickVoice();
     renderGameControls();
+    keepAwake();     // v rámci klepnutí, aby iOS zámek i video povolil
     draw();          // první los hned, v rámci klepnutí (iOS pak povolí hlas)
     schedule();
-    lockScreen();
   }
 
   function stop() {
     running = false; paused = false;
     clearTimeout(timerId);
     if (synth) synth.cancel();
-    unlockScreen();
+    releaseAwake();
     gameEl.classList.add('hidden');
     setupEl.classList.remove('hidden');
     renderSettings();
@@ -399,8 +464,11 @@
     if (running && settings.mode === 'tap') draw();
   });
 
+  // Každé klepnutí během hry zámek a video obnoví, kdyby je iOS mezitím zrušil.
+  gameEl.addEventListener('pointerdown', () => { if (running) keepAwake(); });
+
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && running) lockScreen();
+    if (document.visibilityState === 'visible' && running) keepAwake();
   });
 
   renderSettings();
