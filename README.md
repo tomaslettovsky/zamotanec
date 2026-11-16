@@ -20,4 +20,4 @@ Kurzy venku · Tomáš Lettovský · [kurzyvenku.cz](https://kurzyvenku.cz)
 GitHub Pages z větve `main`, složka `/ (root)`, vlastní doména https://zamotanec.kurzyvenku.cz (soubor `CNAME`, DNS záznam CNAME u Českého hostingu → `tomaslettovsky.github.io`).
 
 ## Poznámky
-- Hlas (Web Speech API) na iPhonu v tichém režimu nehraje. Appka na to upozorňuje v nastavení.
+- Hlas (Web Speech API) v tichém režimu telefonu nehraje (ověřeno na iPhonu). Appka na to upozorňuje v nastavení.
