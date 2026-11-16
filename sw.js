@@ -1,5 +1,5 @@
 // Zamotanec: offline mezipaměť. Při změně souborů zvýšit VERSION.
-const VERSION = 'zamotanec-v3';
+const VERSION = 'zamotanec-v4';
 const FILES = [
   './',
   './index.html',

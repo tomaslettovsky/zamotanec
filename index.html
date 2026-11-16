@@ -228,7 +228,7 @@
 
   <div class="bottombar">
     <div id="bottomText"></div>
-    <div class="awake-status" id="awakeStatus"></div>
+    <div class="awake-status hidden" id="awakeStatus"></div>
   </div>
   <div class="paused-badge hidden" id="pausedBadge">Pauza</div>
 </section>
@@ -251,6 +251,8 @@
     { id: 'yellow', text: 'Žlutá' },
     { id: 'blue',   text: 'Modrá' },
   ];
+  // Stejné hodnoty jako --red, --green, --yellow, --blue v CSS.
+  const COLOR_HEX = { red: '#E53935', green: '#1FA34A', yellow: '#FFD60A', blue: '#1E6FE0' };
   const COMBOS = [];
   for (const l of LIMBS) for (const c of COLORS) COMBOS.push({ limb: l, color: c });
 
@@ -398,11 +400,18 @@
     const pick = pool[Math.floor(Math.random() * pool.length)];
     last = pick;
     gameEl.className = 'c-' + pick.color.id + (paused ? ' is-paused' : '');
+    setPageBackground(COLOR_HEX[pick.color.id]);
     const limbEl = $('limbText'), colorEl = $('colorText');
     limbEl.textContent = pick.limb.text;
     colorEl.textContent = pick.color.text;
     for (const el of [limbEl, colorEl]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
     speak(pick.limb.text + ', ' + pick.color.text.toLowerCase() + '.');
+  }
+
+  // Pozadí celé stránky v barvě hry: na iPhonu jinak zůstane dole u indikátoru plochy tmavý pruh.
+  function setPageBackground(color) {
+    document.documentElement.style.backgroundColor = color || '';
+    document.body.style.backgroundColor = color || '';
   }
 
   function schedule() {
@@ -440,6 +449,7 @@
     clearTimeout(timerId);
     if (synth) synth.cancel();
     releaseAwake();
+    setPageBackground('');
     gameEl.classList.add('hidden');
     setupEl.classList.remove('hidden');
     renderSettings();
