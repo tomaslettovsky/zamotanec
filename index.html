@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Zamotanec | Kurzy venku</title>
+<meta name="description" content="Zamotanec: losování barvy a končetiny na pohybovou hru. Kurzy venku, Tomáš Lettovský.">
+<meta name="theme-color" content="#2B2D31">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zamotanec">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<style>
+  :root {
+    --dark: #2B2D31;
+    --dark-2: #36383D;
+    --dark-3: #45484E;
+    --lime: #CFFF04;
+    --light: #F3F4F6;
+    --muted: #A3A6AD;
+    --red: #E53935;
+    --green: #1FA34A;
+    --yellow: #FFD60A;
+    --blue: #1E6FE0;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--dark); color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+  }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+  .hidden { display: none !important; }
+
+  /* ---------- Nastavení ---------- */
+  #setup {
+    min-height: 100%;
+    display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 28px) 22px calc(env(safe-area-inset-bottom) + 18px);
+    max-width: 520px; margin: 0 auto;
+  }
+  .brand { display: flex; justify-content: center; margin-bottom: 26px; }
+  .brand img { width: 62%; max-width: 260px; height: auto; }
+  h1 {
+    margin: 0; text-align: center;
+    font-size: 46px; font-weight: 900; font-style: italic; text-transform: uppercase;
+    letter-spacing: -0.5px; line-height: 1;
+  }
+  .tagline { text-align: center; color: var(--muted); margin: 10px 0 28px; font-size: 16px; }
+
+  .card { background: var(--dark-2); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  .label { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 12px; }
+
+  .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--dark); padding: 5px; border-radius: 12px; }
+  .segmented button {
+    padding: 13px 8px; border-radius: 9px; background: transparent;
+    font-weight: 800; text-transform: uppercase; font-size: 15px; color: var(--muted);
+  }
+  .segmented button[aria-pressed="true"] { background: var(--lime); color: var(--dark); }
+
+  .interval-row { display: flex; align-items: center; gap: 12px; }
+  .interval-value { font-size: 34px; font-weight: 900; font-style: italic; min-width: 86px; text-align: center; }
+  .step-btn {
+    width: 48px; height: 48px; border-radius: 12px; background: var(--dark-3);
+    font-size: 26px; font-weight: 800; flex: none;
+  }
+  input[type=range] { width: 100%; margin: 18px 0 4px; accent-color: var(--lime); height: 28px; }
+  .range-scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+
+  .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .switch-row .title { font-weight: 800; font-size: 17px; }
+  .switch-row .sub { color: var(--muted); font-size: 14px; margin-top: 3px; }
+  .switch {
+    position: relative; width: 58px; height: 34px; border-radius: 17px; background: var(--dark-3); flex: none;
+    transition: background .15s;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%;
+    background: #fff; transition: transform .15s;
+  }
+  .switch[aria-checked="true"] { background: var(--lime); }
+  .switch[aria-checked="true"]::after { transform: translateX(24px); background: var(--dark); }
+  .link-btn { background: none; color: var(--lime); font-weight: 700; padding: 12px 0 0; font-size: 15px; }
+  .voice-note { color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 10px; }
+
+  .start {
+    margin-top: 10px; width: 100%; padding: 20px; border-radius: 14px;
+    background: var(--lime); color: var(--dark);
+    font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .start:active { transform: scale(0.98); }
+
+  footer { margin-top: auto; padding-top: 26px; text-align: center; font-size: 14px; color: var(--muted); }
+  footer a { color: #fff; text-decoration: none; font-weight: 700; }
+  footer a:hover, footer a:active { color: var(--lime); }
+
+  /* ---------- Hra ---------- */
+  #game {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: var(--dark);
+    transition: background-color .25s;
+    --fg: #fff;
+    color: var(--fg);
+  }
+  #game.c-red    { background: var(--red); }
+  #game.c-green  { background: var(--green); }
+  #game.c-yellow { background: var(--yellow); --fg: var(--dark); }
+  #game.c-blue   { background: var(--blue); }
+
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: calc(env(safe-area-inset-top) + 12px) 14px 0;
+  }
+  .topbar .group { display: flex; gap: 10px; }
+  .icon-btn {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(0,0,0,.18); color: var(--fg);
+    display: grid; place-items: center;
+  }
+  .icon-btn svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+  .stage {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 20px;
+  }
+  .limb {
+    font-size: clamp(56px, 17vw, 150px); font-weight: 900; font-style: italic; text-transform: uppercase;
+    line-height: 0.95; letter-spacing: -1px;
+  }
+  .color-name {
+    margin-top: 22px; font-size: clamp(30px, 9vw, 72px); font-weight: 800; text-transform: uppercase;
+    padding: 6px 22px; border: 4px solid var(--fg); border-radius: 999px;
+  }
+  #game.is-paused .stage { opacity: .35; }
+  .pop { animation: pop .3s ease-out; }
+  @keyframes pop { from { transform: scale(.88); opacity: .3; } to { transform: scale(1); opacity: 1; } }
+
+  .bottombar {
+    padding: 0 20px calc(env(safe-area-inset-bottom) + 22px);
+    text-align: center; font-size: 16px; font-weight: 700; opacity: .8;
+  }
+  .paused-badge {
+    position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 70px); transform: translateX(-50%);
+    background: var(--dark); color: #fff; padding: 18px 30px; border-radius: 16px;
+    font-size: 30px; font-weight: 900; text-transform: uppercase; font-style: italic;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= NASTAVENÍ ======================= -->
+<main id="setup">
+  <div class="brand"><img src="img/logo-kurzy-venku.png" alt="Kurzy venku"></div>
+  <h1>Zamotanec</h1>
+  <p class="tagline">Losuje barvu a končetinu, ty se zamotáváš.</p>
+
+  <section class="card">
+    <div class="label">Změna</div>
+    <div class="segmented" role="group" aria-label="Způsob změny">
+      <button type="button" data-mode="tap" aria-pressed="true">Klepnutím</button>
+      <button type="button" data-mode="timer" aria-pressed="false">Časovač</button>
+    </div>
+  </section>
+
+  <section class="card" id="intervalCard">
+    <div class="label">Interval</div>
+    <div class="interval-row">
+      <button type="button" class="step-btn" id="minus" aria-label="Kratší interval">−</button>
+      <div class="interval-value" id="intervalValue">15 s</div>
+      <button type="button" class="step-btn" id="plus" aria-label="Delší interval">+</button>
+    </div>
+    <input type="range" id="interval" min="5" max="60" step="1" value="15" aria-label="Interval v sekundách">
+    <div class="range-scale"><span>5 s</span><span>60 s</span></div>
+  </section>
+
+  <section class="card">
+    <div class="switch-row">
+      <div>
+        <div class="title">Hlas</div>
+        <div class="sub">Řekne nahlas, co kam dát</div>
+      </div>
+      <button type="button" class="switch" id="voiceSwitch" role="switch" aria-checked="true" aria-label="Hlas"></button>
+    </div>
+    <button type="button" class="link-btn" id="testVoice">Vyzkoušet hlas</button>
+    <div class="voice-note hidden" id="voiceNote">
+      V telefonu jsem nenašel český hlas, takže hlášení může znít s cizím přízvukem.
+      Český hlas se stahuje v Nastavení iPhonu v sekci Zpřístupnění, v části o čtení obsahu, pod položkou Hlasy.
+    </div>
+  </section>
+
+  <button type="button" class="start" id="startBtn">Start</button>
+
+  <footer>
+    <a href="https://kurzyvenku.cz" target="_blank" rel="noopener">Kurzy venku · Tomáš Lettovský</a>
+  </footer>
+</main>
+
+<!-- ======================= HRA ======================= -->
+<section id="game" class="hidden" aria-live="polite">
+  <div class="topbar">
+    <button type="button" class="icon-btn" id="closeBtn" aria-label="Zpět na nastavení">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="group">
+      <button type="button" class="icon-btn" id="gameVoiceBtn" aria-label="Hlas"></button>
+      <button type="button" class="icon-btn" id="pauseBtn" aria-label="Pauza"></button>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="limb" id="limbText"></div>
+    <div class="color-name" id="colorText"></div>
+  </div>
+
+  <div class="bottombar" id="bottomText"></div>
+  <div class="paused-badge hidden" id="pausedBadge">Pauza</div>
+</section>
+
+<script>
+(() => {
+  'use strict';
+
+  const LIMBS = [
+    { id: 'lr', text: 'Levá ruka' },
+    { id: 'pr', text: 'Pravá ruka' },
+    { id: 'ln', text: 'Levá noha' },
+    { id: 'pn', text: 'Pravá noha' },
+  ];
+  const COLORS = [
+    { id: 'red',    text: 'Červená' },
+    { id: 'green',  text: 'Zelená' },
+    { id: 'yellow', text: 'Žlutá' },
+    { id: 'blue',   text: 'Modrá' },
+  ];
+  const COMBOS = [];
+  for (const l of LIMBS) for (const c of COLORS) COMBOS.push({ limb: l, color: c });
+
+  const ICONS = {
+    soundOn:  '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
+    soundOff: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>',
+    pause:    '<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>',
+    play:     '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg>',
+  };
+
+  // ---------- Uložené nastavení ----------
+  const STORE_KEY = 'zamotanec-settings';
+  const settings = { mode: 'tap', interval: 15, voice: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    if (saved.mode === 'tap' || saved.mode === 'timer') settings.mode = saved.mode;
+    if (Number.isFinite(saved.interval)) settings.interval = Math.min(60, Math.max(5, Math.round(saved.interval)));
+    if (typeof saved.voice === 'boolean') settings.voice = saved.voice;
+  } catch (e) { /* bez uložení */ }
+  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) {} };
+
+  const $ = (id) => document.getElementById(id);
+  const setupEl = $('setup'), gameEl = $('game');
+  const modeBtns = document.querySelectorAll('[data-mode]');
+  const intervalCard = $('intervalCard'), intervalInput = $('interval'), intervalValue = $('intervalValue');
+  const voiceSwitch = $('voiceSwitch');
+
+  function renderSettings() {
+    modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === settings.mode)));
+    intervalCard.classList.toggle('hidden', settings.mode !== 'timer');
+    intervalInput.value = settings.interval;
+    intervalValue.textContent = settings.interval + ' s';
+    voiceSwitch.setAttribute('aria-checked', String(settings.voice));
+  }
+  modeBtns.forEach(b => b.addEventListener('click', () => { settings.mode = b.dataset.mode; save(); renderSettings(); }));
+  intervalInput.addEventListener('input', () => { settings.interval = Number(intervalInput.value); save(); renderSettings(); });
+  $('minus').addEventListener('click', () => { settings.interval = Math.max(5, settings.interval - 1); save(); renderSettings(); });
+  $('plus').addEventListener('click', () => { settings.interval = Math.min(60, settings.interval + 1); save(); renderSettings(); });
+  voiceSwitch.addEventListener('click', () => { settings.voice = !settings.voice; save(); renderSettings(); });
+
+  // ---------- Hlas ----------
+  const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
+  let czVoice = null;
+  function pickVoice() {
+    if (!synth) return;
+    const voices = synth.getVoices();
+    if (!voices.length) return;
+    czVoice = voices.find(v => /^cs([-_]|$)/i.test(v.lang)) || null;
+    $('voiceNote').classList.toggle('hidden', !!czVoice);
+  }
+  if (synth) {
+    pickVoice();
+    if ('onvoiceschanged' in synth) synth.onvoiceschanged = pickVoice;
+  } else {
+    $('voiceNote').textContent = 'Tenhle prohlížeč neumí hlasový výstup.';
+    $('voiceNote').classList.remove('hidden');
+  }
+  function speak(text) {
+    if (!synth || !settings.voice) return;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'cs-CZ';
+    if (czVoice) u.voice = czVoice;
+    u.rate = 1;
+    synth.speak(u);
+  }
+  $('testVoice').addEventListener('click', () => {
+    if (!settings.voice) { settings.voice = true; save(); renderSettings(); }
+    pickVoice();
+    speak('Levá ruka, červená.');
+  });
+
+  // ---------- Displej nezhasíná ----------
+  let wakeLock = null;
+  async function lockScreen() {
+    try {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  function unlockScreen() { try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null; }
+
+  // ---------- Hra ----------
+  let last = null, timerId = null, running = false, paused = false;
+
+  function draw() {
+    const pool = last ? COMBOS.filter(c => !(c.limb.id === last.limb.id && c.color.id === last.color.id)) : COMBOS;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    last = pick;
+    gameEl.className = 'c-' + pick.color.id + (paused ? ' is-paused' : '');
+    const limbEl = $('limbText'), colorEl = $('colorText');
+    limbEl.textContent = pick.limb.text;
+    colorEl.textContent = pick.color.text;
+    for (const el of [limbEl, colorEl]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    speak(pick.limb.text + ', ' + pick.color.text.toLowerCase() + '.');
+  }
+
+  function schedule() {
+    clearTimeout(timerId);
+    if (running && !paused && settings.mode === 'timer') {
+      timerId = setTimeout(() => { draw(); schedule(); }, settings.interval * 1000);
+    }
+  }
+
+  function renderGameControls() {
+    const isTimer = settings.mode === 'timer';
+    $('pauseBtn').classList.toggle('hidden', !isTimer);
+    $('pauseBtn').innerHTML = paused ? ICONS.play : ICONS.pause;
+    $('pauseBtn').setAttribute('aria-label', paused ? 'Pokračovat' : 'Pauza');
+    $('gameVoiceBtn').innerHTML = settings.voice ? ICONS.soundOn : ICONS.soundOff;
+    $('gameVoiceBtn').setAttribute('aria-label', settings.voice ? 'Vypnout hlas' : 'Zapnout hlas');
+    $('pausedBadge').classList.toggle('hidden', !paused);
+    gameEl.classList.toggle('is-paused', paused);
+    $('bottomText').textContent = isTimer ? ('Změna každých ' + settings.interval + ' s') : 'Klepni kamkoliv pro další';
+  }
+
+  function start() {
+    running = true; paused = false; last = null;
+    setupEl.classList.add('hidden');
+    gameEl.classList.remove('hidden');
+    pickVoice();
+    renderGameControls();
+    draw();          // první los hned, v rámci klepnutí (iOS pak povolí hlas)
+    schedule();
+    lockScreen();
+  }
+
+  function stop() {
+    running = false; paused = false;
+    clearTimeout(timerId);
+    if (synth) synth.cancel();
+    unlockScreen();
+    gameEl.classList.add('hidden');
+    setupEl.classList.remove('hidden');
+    renderSettings();
+  }
+
+  $('startBtn').addEventListener('click', start);
+  $('closeBtn').addEventListener('click', (e) => { e.stopPropagation(); stop(); });
+  $('pauseBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    paused = !paused;
+    if (paused && synth) synth.cancel();
+    renderGameControls();
+    schedule();
+  });
+  $('gameVoiceBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    settings.voice = !settings.voice; save();
+    if (!settings.voice && synth) synth.cancel();
+    renderGameControls();
+  });
+  gameEl.addEventListener('click', () => {
+    if (running && settings.mode === 'tap') draw();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && running) lockScreen();
+  });
+
+  renderSettings();
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
