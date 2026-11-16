@@ -17,4 +17,7 @@ Kurzy venku · Tomáš Lettovský · [kurzyvenku.cz](https://kurzyvenku.cz)
 - `sw.js`: offline mezipaměť. Při úpravě souborů zvýšit `VERSION`.
 
 ## Nasazení
-GitHub Pages z větve `main`, složka `/ (root)`.
+GitHub Pages z větve `main`, složka `/ (root)`, vlastní doména https://zamotanec.kurzyvenku.cz (soubor `CNAME`, DNS záznam CNAME u Českého hostingu → `tomaslettovsky.github.io`).
+
+## Poznámky
+- Hlas (Web Speech API) na iPhonu v tichém režimu nehraje. Appka na to upozorňuje v nastavení.
