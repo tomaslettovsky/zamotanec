@@ -225,9 +225,13 @@
     </div>
     <button type="button" class="link-btn" id="testVoice">Vyzkoušet hlas</button>
     <div class="voice-note">Když hlas mlčí, zkontroluj hlasitost a vypni tichý režim.</div>
-    <div class="voice-note hidden" id="voiceNote">
-      V telefonu jsem nenašel český hlas, takže hlášení může znít s cizím přízvukem.
-      Český hlas se stahuje v Nastavení iPhonu v sekci Zpřístupnění, v části o čtení obsahu, pod položkou Hlasy.
+    <div class="divider"></div>
+    <div class="switch-row">
+      <div>
+        <div class="title">Povzbuzování</div>
+        <div class="sub">Občas přidá povzbuzovací hlášku</div>
+      </div>
+      <button type="button" class="switch" id="cheerSwitch" role="switch" aria-checked="true" aria-label="Povzbuzování"></button>
     </div>
   </section>
 
@@ -313,6 +317,7 @@
   const settings = {
     mode: 'tap', interval: 15, voice: true,
     set: 'colors', colors: DEFAULT_COLORS.slice(), holds: DEFAULT_HOLDS.slice(), feetFree: false,
+    cheer: true,
   };
   const cleanIds = (arr, all) => Array.isArray(arr) ? all.map(x => x.id).filter(id => arr.includes(id)) : null;
   try {
@@ -324,6 +329,7 @@
     const sc = cleanIds(saved.colors, COLORS); if (sc && sc.length >= MIN_ITEMS) settings.colors = sc;
     const sh = cleanIds(saved.holds, HOLDS);   if (sh && sh.length >= MIN_ITEMS) settings.holds = sh;
     if (typeof saved.feetFree === 'boolean') settings.feetFree = saved.feetFree;
+    if (typeof saved.cheer === 'boolean') settings.cheer = saved.cheer;
   } catch (e) { /* bez uložení */ }
   const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) {} };
 
@@ -388,6 +394,7 @@
     intervalInput.value = settings.interval;
     intervalValue.textContent = settings.interval + ' s';
     voiceSwitch.setAttribute('aria-checked', String(settings.voice));
+    $('cheerSwitch').setAttribute('aria-checked', String(settings.cheer));
   }
   modeBtns.forEach(b => b.addEventListener('click', () => { settings.mode = b.dataset.mode; save(); renderSettings(); }));
   setBtns.forEach(b => b.addEventListener('click', () => { settings.set = b.dataset.set; save(); renderSettings(); }));
@@ -396,47 +403,151 @@
   $('minus').addEventListener('click', () => { settings.interval = Math.max(5, settings.interval - 1); save(); renderSettings(); });
   $('plus').addEventListener('click', () => { settings.interval = Math.min(60, settings.interval + 1); save(); renderSettings(); });
   voiceSwitch.addEventListener('click', () => { settings.voice = !settings.voice; save(); renderSettings(); });
+  $('cheerSwitch').addEventListener('click', () => { settings.cheer = !settings.cheer; save(); renderSettings(); });
 
   // ---------- Hlas ----------
+  // Hlavní hlas: nahrávky (Web Audio API). Záloha: systémová syntéza řeči.
+  const CHEERS = [
+    { id: 'cheer-1', text: 'Pojeď!' },
+    { id: 'cheer-2', text: 'Dělej!' },
+    { id: 'cheer-3', text: 'Drž to!' },
+    { id: 'cheer-4', text: 'Silnej!' },
+    { id: 'cheer-5', text: 'Dawaj kurwa dawaj!' },
+  ];
+  const GAP = 0.15;          // pauza mezi končetinou a barvou/chytem (s)
+  const CHEER_GAP = 0.45;    // pauza před hláškou (s)
+  const CHEER_MARGIN = 0.4;  // rezerva před další změnou časovače (s)
+
+  function clipKey(item) {
+    if (LIMBS.includes(item)) return 'limb-' + item.id;
+    if (COLORS.includes(item)) return 'color-' + item.id;
+    if (HOLDS.includes(item)) return 'hold-' + item.id;
+    return item.id;  // hlášky
+  }
+  const ALL_CLIPS = [...LIMBS, ...COLORS, ...HOLDS].map(clipKey).concat(CHEERS.map(c => c.id));
+
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let actx = null;
+  const buffers = {};
+  let active = [];
+
+  function setupAudio() {
+    if (actx || !AC) return;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    try { actx = new AC(); } catch (e) { actx = null; return; }
+    for (const key of ALL_CLIPS) {
+      fetch('audio/' + key + '.m4a')
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(data => new Promise((ok, fail) => actx.decodeAudioData(data, ok, fail)))
+        .then(buf => { buffers[key] = buf; })
+        .catch(() => {});
+    }
+  }
+  // Volá se z klepnutí: iOS povolí zvuk jen po akci uživatele.
+  function unlockAudio() {
+    setupAudio();
+    if (actx && actx.state !== 'running') { try { actx.resume(); } catch (e) {} }
+  }
+  setupAudio();
+
+  let voiceToken = 0;
+  function stopVoice() {
+    voiceToken++;
+    for (const src of active) { try { src.stop(); } catch (e) {} }
+    active = [];
+    if (synth) synth.cancel();
+  }
+
+  // Přehraje klipy za sebou; vrátí délku v sekundách, nebo null, když nahrávky nejsou k dispozici.
+  function playClips(parts) {
+    if (!actx || actx.state === 'closed') return null;
+    if (!parts.every(p => buffers[p.key])) return null;
+    const total = parts.reduce((s, p) => s + (p.gapBefore || 0) + buffers[p.key].duration, 0);
+    if (actx.state === 'running') scheduleClips(parts);
+    else {
+      const token = voiceToken;
+      actx.resume().then(() => { if (token === voiceToken) scheduleClips(parts); }).catch(() => {});
+    }
+    return total;
+  }
+  function scheduleClips(parts) {
+    let t = actx.currentTime + 0.03;
+    for (const p of parts) {
+      t += p.gapBefore || 0;
+      const src = actx.createBufferSource();
+      src.buffer = buffers[p.key];
+      src.connect(actx.destination);
+      src.start(t);
+      src.onended = () => { active = active.filter(x => x !== src); };
+      active.push(src);
+      t += src.buffer.duration;
+    }
+  }
+
+  // Systémová syntéza (záloha)
   const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
   let czVoice = null;
   function pickVoice() {
     if (!synth) return;
     const voices = synth.getVoices();
-    if (!voices.length) return;
-    czVoice = voices.find(v => /^cs([-_]|$)/i.test(v.lang)) || null;
-    $('voiceNote').classList.toggle('hidden', !!czVoice);
+    if (voices.length) czVoice = voices.find(v => /^cs([-_]|$)/i.test(v.lang)) || null;
   }
   if (synth) {
     pickVoice();
     if ('onvoiceschanged' in synth) synth.onvoiceschanged = pickVoice;
-  } else {
-    $('voiceNote').textContent = 'Tenhle prohlížeč neumí hlasový výstup.';
-    $('voiceNote').classList.remove('hidden');
   }
   function speak(text) {
-    if (!synth || !settings.voice) return;
+    if (!synth) return;
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'cs-CZ';
     if (czVoice) u.voice = czVoice;
-    u.rate = 1;
     synth.speak(u);
   }
+
+  // Povzbuzování: po náhodném počtu 3–7 změn
+  let changesSinceCheer = 0, nextCheerAt = 0, lastCheer = null;
+  const randomCheerGap = () => 3 + Math.floor(Math.random() * 5);
+  function resetCheers() { changesSinceCheer = 0; nextCheerAt = randomCheerGap(); lastCheer = null; }
+
+  function announce(limb, item, allowCheer) {
+    stopVoice();
+    if (!settings.voice) return;
+    const parts = [{ key: clipKey(limb) }, { key: clipKey(item), gapBefore: GAP }];
+
+    let cheer = null;
+    if (allowCheer && settings.cheer) {
+      changesSinceCheer++;
+      if (changesSinceCheer >= nextCheerAt) {
+        const options = CHEERS.filter(c => c.id !== lastCheer);
+        cheer = options[Math.floor(Math.random() * options.length)];
+      }
+    }
+
+    if (cheer && buffers[cheer.id]) {
+      const instr = parts.reduce((s, p) => s + (p.gapBefore || 0) + (buffers[p.key] ? buffers[p.key].duration : 0), 0);
+      const total = instr + CHEER_GAP + buffers[cheer.id].duration;
+      // S časovačem jen když se hláška vejde před další změnu; jinak se zkusí příště.
+      if (settings.mode !== 'timer' || total + CHEER_MARGIN <= settings.interval) {
+        parts.push({ key: cheer.id, gapBefore: CHEER_GAP });
+      } else cheer = null;
+    }
+
+    const played = playClips(parts);
+    if (played === null) {
+      speak(limb.text + ', ' + item.text.toLowerCase() + '.' + (cheer ? ' ' + cheer.text : ''));
+    }
+    if (cheer) { lastCheer = cheer.id; changesSinceCheer = 0; nextCheerAt = randomCheerGap(); }
+  }
+
   $('testVoice').addEventListener('click', () => {
     if (!settings.voice) { settings.voice = true; save(); renderSettings(); }
+    unlockAudio();
     pickVoice();
-    if (settings.set === 'holds') {
-      const h = HOLDS.find(x => x.id === settings.holds[0]) || HOLDS[0];
-      speak('Levá ruka, ' + spoken(h) + '.');
-    } else {
-      const c = COLORS.find(x => x.id === settings.colors[0]) || COLORS[0];
-      speak('Levá ruka, ' + c.text.toLowerCase() + '.');
-    }
+    const list = currentList(), sel = settings[selectedKey()];
+    const item = list.find(x => x.id === sel[0]) || list[0];
+    announce(LIMBS[0], item, false);
   });
-
-  // Text pro hlas: položka může mít vlastní zápis výslovnosti (say).
-  function spoken(item) { return item.say || item.text.toLowerCase(); }
 
   // ---------- Displej nezhasíná ----------
   // Dvě metody zároveň: Screen Wake Lock API a záložní tiché video ve smyčce.
@@ -543,7 +654,7 @@
     limbEl.textContent = pick.limb.text;
     colorEl.textContent = pick.item.text;
     for (const el of [limbEl, colorEl]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-    speak(pick.limb.text + ', ' + spoken(pick.item) + '.');
+    announce(pick.limb, pick.item, true);
   }
 
   // Pozadí celé stránky v barvě hry: na iPhonu jinak zůstane dole u indikátoru plochy tmavý pruh.
@@ -578,6 +689,8 @@
     setupEl.classList.add('hidden');
     gameEl.classList.remove('hidden');
     pickVoice();
+    unlockAudio();
+    resetCheers();
     renderGameControls();
     keepAwake();     // v rámci klepnutí, aby iOS zámek i video povolil
     draw();          // první los hned, v rámci klepnutí (iOS pak povolí hlas)
@@ -587,7 +700,7 @@
   function stop() {
     running = false; paused = false;
     clearTimeout(timerId);
-    if (synth) synth.cancel();
+    stopVoice();
     releaseAwake();
     setPageBackground('');
     gameEl.classList.add('hidden');
@@ -600,14 +713,14 @@
   $('pauseBtn').addEventListener('click', (e) => {
     e.stopPropagation();
     paused = !paused;
-    if (paused && synth) synth.cancel();
+    if (paused) stopVoice();
     renderGameControls();
     schedule();
   });
   $('gameVoiceBtn').addEventListener('click', (e) => {
     e.stopPropagation();
     settings.voice = !settings.voice; save();
-    if (!settings.voice && synth) synth.cancel();
+    if (!settings.voice) stopVoice();
     renderGameControls();
   });
   gameEl.addEventListener('click', () => {
@@ -615,10 +728,10 @@
   });
 
   // Každé klepnutí během hry zámek a video obnoví, kdyby je iOS mezitím zrušil.
-  gameEl.addEventListener('pointerdown', () => { if (running) keepAwake(); });
+  gameEl.addEventListener('pointerdown', () => { if (running) { keepAwake(); unlockAudio(); } });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && running) keepAwake();
+    if (document.visibilityState === 'visible' && running) { keepAwake(); unlockAudio(); }
   });
 
   renderSettings();

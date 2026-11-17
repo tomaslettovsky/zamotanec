@@ -1,5 +1,5 @@
 // Zamotanec: offline mezipaměť. Při změně souborů zvýšit VERSION.
-const VERSION = 'zamotanec-v10';
+const VERSION = 'zamotanec-v11';
 const FILES = [
   './',
   './index.html',
@@ -11,6 +11,31 @@ const FILES = [
   './img/icon-maskable-512.png',
   './img/favicon-32.png',
   './media/awake.mp4',
+  './audio/limb-lr.m4a',
+  './audio/limb-pr.m4a',
+  './audio/limb-ln.m4a',
+  './audio/limb-pn.m4a',
+  './audio/color-red.m4a',
+  './audio/color-orange.m4a',
+  './audio/color-yellow.m4a',
+  './audio/color-green.m4a',
+  './audio/color-blue.m4a',
+  './audio/color-purple.m4a',
+  './audio/color-pink.m4a',
+  './audio/color-white.m4a',
+  './audio/color-black.m4a',
+  './audio/hold-madlo.m4a',
+  './audio/hold-lista.m4a',
+  './audio/hold-spodak.m4a',
+  './audio/hold-oblina.m4a',
+  './audio/hold-stisk.m4a',
+  './audio/hold-bocak.m4a',
+  './audio/hold-dirka.m4a',
+  './audio/cheer-1.m4a',
+  './audio/cheer-2.m4a',
+  './audio/cheer-3.m4a',
+  './audio/cheer-4.m4a',
+  './audio/cheer-5.m4a',
 ];
 
 self.addEventListener('install', (event) => {
