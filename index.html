@@ -572,9 +572,9 @@
     synth.speak(u);
   }
 
-  // Povzbuzování: po náhodném počtu 3–7 změn
+  // Povzbuzování: po náhodném počtu 2–3 změn
   let changesSinceCheer = 0, nextCheerAt = 0, lastCheer = null;
-  const randomCheerGap = () => 3 + Math.floor(Math.random() * 5);
+  const randomCheerGap = () => 2 + Math.floor(Math.random() * 2);
   function resetCheers() { changesSinceCheer = 0; nextCheerAt = randomCheerGap(); lastCheer = null; }
 
   function announce(limb, item, allowCheer) {

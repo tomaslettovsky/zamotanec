@@ -14,7 +14,7 @@ Kurzy venku · Tomáš Lettovský · [kurzyvenku.cz](https://kurzyvenku.cz)
 - Stejná končetina nejvýš 2× po sobě, stejná kombinace nikdy hned po sobě
 - Změna klepnutím na obrazovku, nebo časovačem s pevným intervalem 5–60 s
 - Hlas: nahrávky Tomáše (`audio/`), jde vypnout, funguje i se sluchátky. Když se nahrávky nenačtou, použije se systémová syntéza řeči.
-- Povzbuzování: po náhodném počtu 3–7 změn se po pokynu přehraje náhodná hláška (`audio/cheer-*.m4a`). S časovačem jen tehdy, když se vejde před další změnu. Jde vypnout.
+- Povzbuzování: po náhodném počtu 2–3 změn se po pokynu přehraje náhodná hláška (`audio/cheer-*.m4a`). S časovačem jen tehdy, když se vejde před další změnu. Jde vypnout.
 - Displej se během hry drží rozsvícený (Screen Wake Lock API, pokud ho prohlížeč podporuje)
 - Funguje offline a jde přidat na plochu iPhonu
 
