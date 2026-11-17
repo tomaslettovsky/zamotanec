@@ -796,16 +796,15 @@
     cdTimer = setTimeout(() => {
       cdLeft--;
       if (cdLeft > 0) {
-        if (cdLeft <= 3) beep(880, 0.15);
+        if (cdLeft >= 2 && cdLeft <= 4) beep(880, 0.15);   // 4, 3, 2: krátké pípnutí
+        else if (cdLeft === 1) beep(1320, 0.8);             // 1: dlouhý tón
         renderCountdown();
         tickCountdown();
       } else {
-        beep(1320, 0.6);
         cdLeft = null;
         renderCountdown();
-        phase = 'play';
-        if (settings.startPos) schedule();   // startovní pozice platí, první změna po intervalu
-        else { draw(); schedule(); }         // bez startovní pozice hned první pokyn
+        draw();       // na nule hned první pokyn
+        schedule();   // od něj běží časovač
       }
     }, 1000);
   }
