@@ -289,7 +289,7 @@
   const HOLDS = [
     { id: 'madlo',  text: 'Madlo' },
     { id: 'lista',  text: 'Lišta' },
-    { id: 'spodak', text: 'Spoďák' },
+    { id: 'spodak', text: 'Spoďák', say: 'spodják' },  // hlas čte „spoďák“ špatně, proto jiný zápis
     { id: 'oblina', text: 'Oblina' },
     { id: 'stisk',  text: 'Stisk' },
     { id: 'bocak',  text: 'Bočák' },
@@ -428,12 +428,15 @@
     pickVoice();
     if (settings.set === 'holds') {
       const h = HOLDS.find(x => x.id === settings.holds[0]) || HOLDS[0];
-      speak('Levá ruka, ' + h.text.toLowerCase() + '.');
+      speak('Levá ruka, ' + spoken(h) + '.');
     } else {
       const c = COLORS.find(x => x.id === settings.colors[0]) || COLORS[0];
       speak('Levá ruka, ' + c.text.toLowerCase() + '.');
     }
   });
+
+  // Text pro hlas: položka může mít vlastní zápis výslovnosti (say).
+  function spoken(item) { return item.say || item.text.toLowerCase(); }
 
   // ---------- Displej nezhasíná ----------
   // Dvě metody zároveň: Screen Wake Lock API a záložní tiché video ve smyčce.
@@ -540,7 +543,7 @@
     limbEl.textContent = pick.limb.text;
     colorEl.textContent = pick.item.text;
     for (const el of [limbEl, colorEl]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-    speak(pick.limb.text + ', ' + pick.item.text.toLowerCase() + '.');
+    speak(pick.limb.text + ', ' + spoken(pick.item) + '.');
   }
 
   // Pozadí celé stránky v barvě hry: na iPhonu jinak zůstane dole u indikátoru plochy tmavý pruh.
