@@ -21,10 +21,6 @@
     --lime: #CFFF04;
     --light: #F3F4F6;
     --muted: #A3A6AD;
-    --red: #E53935;
-    --green: #1FA34A;
-    --yellow: #FFD60A;
-    --blue: #1E6FE0;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -89,6 +85,20 @@
   .link-btn { background: none; color: var(--lime); font-weight: 700; padding: 12px 0 0; font-size: 15px; }
   .voice-note { color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 10px; }
 
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-radius: 999px; background: var(--dark);
+    font-weight: 700; font-size: 15px; color: var(--muted);
+    border: 2px solid var(--dark-3);
+  }
+  .chip[aria-pressed="true"] { color: #fff; border-color: var(--lime); }
+  .chip .dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); flex: none; }
+  .chip[aria-pressed="false"] .dot { opacity: .35; }
+  .hint { color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 10px; }
+  .hint.warn { color: var(--lime); }
+  .divider { height: 1px; background: var(--dark-3); margin: 16px 0; }
+
   .start {
     margin-top: 10px; width: 100%; padding: 20px; border-radius: 14px;
     background: var(--lime); color: var(--dark);
@@ -107,12 +117,9 @@
     background: var(--dark);
     transition: background-color .25s;
     --fg: #fff;
+    --btn: rgba(0,0,0,.18);
     color: var(--fg);
   }
-  #game.c-red    { background: var(--red); }
-  #game.c-green  { background: var(--green); }
-  #game.c-yellow { background: var(--yellow); --fg: var(--dark); }
-  #game.c-blue   { background: var(--blue); }
 
   .topbar {
     display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -121,7 +128,7 @@
   .topbar .group { display: flex; gap: 10px; }
   .icon-btn {
     width: 52px; height: 52px; border-radius: 50%;
-    background: rgba(0,0,0,.18); color: var(--fg);
+    background: var(--btn); color: var(--fg);
     display: grid; place-items: center;
   }
   .icon-btn svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -165,7 +172,28 @@
 <main id="setup">
   <div class="brand"><img src="img/logo-kurzy-venku.png" alt="Kurzy venku"></div>
   <h1>Zamotanec</h1>
-  <p class="tagline">Losuje barvu a končetinu, ty se zamotáváš.</p>
+  <p class="tagline">Losuje, kam co dát. Ty se zamotáváš.</p>
+
+  <section class="card">
+    <div class="label">Losuje se</div>
+    <div class="segmented" role="group" aria-label="Co se losuje">
+      <button type="button" data-set="colors" aria-pressed="true">Barvy</button>
+      <button type="button" data-set="holds" aria-pressed="false">Chyty</button>
+    </div>
+    <div class="divider"></div>
+    <div class="label" id="itemsLabel">Barvy ve hře</div>
+    <div class="chips" id="chips"></div>
+    <div class="hint" id="itemsHint">Musí zůstat aspoň 2.</div>
+    <div class="divider"></div>
+    <div class="switch-row" id="feetRow">
+      <div>
+        <div class="title">Nohy volně</div>
+        <div class="sub">Losují se jen ruce</div>
+      </div>
+      <button type="button" class="switch" id="feetSwitch" role="switch" aria-checked="false" aria-label="Nohy volně"></button>
+    </div>
+    <div class="hint hidden" id="holdsFeetNote">U chytů jsou nohy vždy volně, losují se jen ruce.</div>
+  </section>
 
   <section class="card">
     <div class="label">Změna</div>
@@ -240,21 +268,37 @@
   'use strict';
 
   const LIMBS = [
-    { id: 'lr', text: 'Levá ruka' },
-    { id: 'pr', text: 'Pravá ruka' },
-    { id: 'ln', text: 'Levá noha' },
-    { id: 'pn', text: 'Pravá noha' },
+    { id: 'lr', text: 'Levá ruka',  hand: true },
+    { id: 'pr', text: 'Pravá ruka', hand: true },
+    { id: 'ln', text: 'Levá noha',  hand: false },
+    { id: 'pn', text: 'Pravá noha', hand: false },
   ];
+  // bg = pozadí herní obrazovky, fg = barva písma, btn = podklad tlačítek.
   const COLORS = [
-    { id: 'red',    text: 'Červená' },
-    { id: 'green',  text: 'Zelená' },
-    { id: 'yellow', text: 'Žlutá' },
-    { id: 'blue',   text: 'Modrá' },
+    { id: 'red',    text: 'Červená',  bg: '#E53935', fg: '#FFFFFF', btn: 'rgba(0,0,0,.18)' },
+    { id: 'orange', text: 'Oranžová', bg: '#FB8C00', fg: '#FFFFFF', btn: 'rgba(0,0,0,.18)' },
+    { id: 'yellow', text: 'Žlutá',    bg: '#FFD60A', fg: '#2B2D31', btn: 'rgba(0,0,0,.12)' },
+    { id: 'green',  text: 'Zelená',   bg: '#1FA34A', fg: '#FFFFFF', btn: 'rgba(0,0,0,.18)' },
+    { id: 'blue',   text: 'Modrá',    bg: '#1E6FE0', fg: '#FFFFFF', btn: 'rgba(0,0,0,.18)' },
+    { id: 'purple', text: 'Fialová',  bg: '#8E44AD', fg: '#FFFFFF', btn: 'rgba(0,0,0,.18)' },
+    { id: 'pink',   text: 'Růžová',   bg: '#EC4899', fg: '#FFFFFF', btn: 'rgba(0,0,0,.18)' },
+    { id: 'white',  text: 'Bílá',     bg: '#F5F5F5', fg: '#2B2D31', btn: 'rgba(0,0,0,.08)' },
+    { id: 'black',  text: 'Černá',    bg: '#0B0B0C', fg: '#FFFFFF', btn: 'rgba(255,255,255,.14)' },
   ];
-  // Stejné hodnoty jako --red, --green, --yellow, --blue v CSS.
-  const COLOR_HEX = { red: '#E53935', green: '#1FA34A', yellow: '#FFD60A', blue: '#1E6FE0' };
-  const COMBOS = [];
-  for (const l of LIMBS) for (const c of COLORS) COMBOS.push({ limb: l, color: c });
+  const HOLDS = [
+    { id: 'madlo',  text: 'Madlo' },
+    { id: 'lista',  text: 'Lišta' },
+    { id: 'spodak', text: 'Spoďák' },
+    { id: 'oblina', text: 'Oblina' },
+    { id: 'stisk',  text: 'Stisk' },
+    { id: 'bocak',  text: 'Bočák' },
+    { id: 'dirka',  text: 'Dírka' },
+  ];
+  const HOLD_LOOK = { bg: '#2B2D31', fg: '#CFFF04', btn: 'rgba(255,255,255,.10)' };
+  const DEFAULT_COLORS = ['red', 'yellow', 'green', 'blue'];
+  const DEFAULT_HOLDS = HOLDS.map(h => h.id);
+  const MIN_ITEMS = 2;
+  const MAX_SAME_LIMB = 2;   // stejná končetina nejvýš 2× po sobě
 
   const ICONS = {
     soundOn:  '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
@@ -265,12 +309,20 @@
 
   // ---------- Uložené nastavení ----------
   const STORE_KEY = 'zamotanec-settings';
-  const settings = { mode: 'tap', interval: 15, voice: true };
+  const settings = {
+    mode: 'tap', interval: 15, voice: true,
+    set: 'colors', colors: DEFAULT_COLORS.slice(), holds: DEFAULT_HOLDS.slice(), feetFree: false,
+  };
+  const cleanIds = (arr, all) => Array.isArray(arr) ? all.map(x => x.id).filter(id => arr.includes(id)) : null;
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
     if (saved.mode === 'tap' || saved.mode === 'timer') settings.mode = saved.mode;
     if (Number.isFinite(saved.interval)) settings.interval = Math.min(60, Math.max(5, Math.round(saved.interval)));
     if (typeof saved.voice === 'boolean') settings.voice = saved.voice;
+    if (saved.set === 'colors' || saved.set === 'holds') settings.set = saved.set;
+    const sc = cleanIds(saved.colors, COLORS); if (sc && sc.length >= MIN_ITEMS) settings.colors = sc;
+    const sh = cleanIds(saved.holds, HOLDS);   if (sh && sh.length >= MIN_ITEMS) settings.holds = sh;
+    if (typeof saved.feetFree === 'boolean') settings.feetFree = saved.feetFree;
   } catch (e) { /* bez uložení */ }
   const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) {} };
 
@@ -279,8 +331,57 @@
   const modeBtns = document.querySelectorAll('[data-mode]');
   const intervalCard = $('intervalCard'), intervalInput = $('interval'), intervalValue = $('intervalValue');
   const voiceSwitch = $('voiceSwitch');
+  const setBtns = document.querySelectorAll('[data-set]');
+  let minWarnTimer = null;
+
+  function currentList() { return settings.set === 'holds' ? HOLDS : COLORS; }
+  function selectedKey() { return settings.set === 'holds' ? 'holds' : 'colors'; }
+
+  function renderChips() {
+    const list = currentList(), sel = settings[selectedKey()];
+    const wrap = $('chips');
+    wrap.innerHTML = '';
+    for (const item of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.setAttribute('aria-pressed', String(sel.includes(item.id)));
+      if (item.bg) {
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dot.style.background = item.bg;
+        b.appendChild(dot);
+      }
+      b.appendChild(document.createTextNode(item.text));
+      b.addEventListener('click', () => toggleItem(item.id));
+      wrap.appendChild(b);
+    }
+  }
+
+  function toggleItem(id) {
+    const key = selectedKey(), sel = settings[key];
+    if (sel.includes(id)) {
+      if (sel.length <= MIN_ITEMS) {
+        const h = $('itemsHint');
+        h.classList.add('warn');
+        clearTimeout(minWarnTimer);
+        minWarnTimer = setTimeout(() => h.classList.remove('warn'), 1500);
+        return;
+      }
+      settings[key] = sel.filter(x => x !== id);
+    } else {
+      settings[key] = currentList().map(x => x.id).filter(x => x === id || sel.includes(x));
+    }
+    save(); renderSettings();
+  }
 
   function renderSettings() {
+    setBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.set === settings.set)));
+    $('itemsLabel').textContent = settings.set === 'holds' ? 'Chyty ve hře' : 'Barvy ve hře';
+    renderChips();
+    $('feetRow').classList.toggle('hidden', settings.set === 'holds');
+    $('holdsFeetNote').classList.toggle('hidden', settings.set !== 'holds');
+    $('feetSwitch').setAttribute('aria-checked', String(settings.feetFree));
     modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === settings.mode)));
     intervalCard.classList.toggle('hidden', settings.mode !== 'timer');
     intervalInput.value = settings.interval;
@@ -288,6 +389,8 @@
     voiceSwitch.setAttribute('aria-checked', String(settings.voice));
   }
   modeBtns.forEach(b => b.addEventListener('click', () => { settings.mode = b.dataset.mode; save(); renderSettings(); }));
+  setBtns.forEach(b => b.addEventListener('click', () => { settings.set = b.dataset.set; save(); renderSettings(); }));
+  $('feetSwitch').addEventListener('click', () => { settings.feetFree = !settings.feetFree; save(); renderSettings(); });
   intervalInput.addEventListener('input', () => { settings.interval = Number(intervalInput.value); save(); renderSettings(); });
   $('minus').addEventListener('click', () => { settings.interval = Math.max(5, settings.interval - 1); save(); renderSettings(); });
   $('plus').addEventListener('click', () => { settings.interval = Math.min(60, settings.interval + 1); save(); renderSettings(); });
@@ -322,7 +425,13 @@
   $('testVoice').addEventListener('click', () => {
     if (!settings.voice) { settings.voice = true; save(); renderSettings(); }
     pickVoice();
-    speak('Levá ruka, červená.');
+    if (settings.set === 'holds') {
+      const h = HOLDS.find(x => x.id === settings.holds[0]) || HOLDS[0];
+      speak('Levá ruka, ' + h.text.toLowerCase() + '.');
+    } else {
+      const c = COLORS.find(x => x.id === settings.colors[0]) || COLORS[0];
+      speak('Levá ruka, ' + c.text.toLowerCase() + '.');
+    }
   });
 
   // ---------- Displej nezhasíná ----------
@@ -393,19 +502,44 @@
   });
 
   // ---------- Hra ----------
-  let last = null, timerId = null, running = false, paused = false;
+  let last = null, limbHistory = [], timerId = null, running = false, paused = false;
+
+  function handsOnly() { return settings.set === 'holds' || settings.feetFree; }
+
+  function buildPool() {
+    const limbs = handsOnly() ? LIMBS.filter(l => l.hand) : LIMBS;
+    const list = currentList(), sel = settings[selectedKey()];
+    const items = list.filter(x => sel.includes(x.id));
+    // Končetina, která padla MAX_SAME_LIMB× po sobě, teď nepadne.
+    const recent = limbHistory.slice(-MAX_SAME_LIMB);
+    const blocked = recent.length === MAX_SAME_LIMB && recent.every(id => id === recent[0]) ? recent[0] : null;
+    const pool = [];
+    for (const l of limbs) {
+      if (l.id === blocked) continue;
+      for (const it of items) {
+        if (last && last.limb.id === l.id && last.item.id === it.id) continue;  // ne stejná kombinace hned po sobě
+        pool.push({ limb: l, item: it });
+      }
+    }
+    return pool;
+  }
 
   function draw() {
-    const pool = last ? COMBOS.filter(c => !(c.limb.id === last.limb.id && c.color.id === last.color.id)) : COMBOS;
+    const pool = buildPool();
     const pick = pool[Math.floor(Math.random() * pool.length)];
     last = pick;
-    gameEl.className = 'c-' + pick.color.id + (paused ? ' is-paused' : '');
-    setPageBackground(COLOR_HEX[pick.color.id]);
+    limbHistory.push(pick.limb.id);
+    if (limbHistory.length > 10) limbHistory.shift();
+    const look = settings.set === 'holds' ? HOLD_LOOK : pick.item;
+    gameEl.style.backgroundColor = look.bg;
+    gameEl.style.setProperty('--fg', look.fg);
+    gameEl.style.setProperty('--btn', look.btn);
+    setPageBackground(look.bg);
     const limbEl = $('limbText'), colorEl = $('colorText');
     limbEl.textContent = pick.limb.text;
-    colorEl.textContent = pick.color.text;
+    colorEl.textContent = pick.item.text;
     for (const el of [limbEl, colorEl]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-    speak(pick.limb.text + ', ' + pick.color.text.toLowerCase() + '.');
+    speak(pick.limb.text + ', ' + pick.item.text.toLowerCase() + '.');
   }
 
   // Pozadí celé stránky v barvě hry: na iPhonu jinak zůstane dole u indikátoru plochy tmavý pruh.
@@ -430,11 +564,13 @@
     $('gameVoiceBtn').setAttribute('aria-label', settings.voice ? 'Vypnout hlas' : 'Zapnout hlas');
     $('pausedBadge').classList.toggle('hidden', !paused);
     gameEl.classList.toggle('is-paused', paused);
-    $('bottomText').textContent = isTimer ? ('Změna každých ' + settings.interval + ' s') : 'Klepni kamkoliv pro další';
+    const change = isTimer ? ('Změna každých ' + settings.interval + ' s') : 'Klepni kamkoliv pro další';
+    $('bottomText').textContent = handsOnly() ? ('Nohy volně · ' + change) : change;
   }
 
   function start() {
-    running = true; paused = false; last = null;
+    running = true; paused = false; last = null; limbHistory = [];
+    gameEl.style.backgroundColor = '';
     setupEl.classList.add('hidden');
     gameEl.classList.remove('hidden');
     pickVoice();

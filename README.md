@@ -1,13 +1,17 @@
 # Zamotanec
 
-Webová appka na pohybovou hru: losuje barvu (červená, zelená, žlutá, modrá) a končetinu (levá/pravá ruka, levá/pravá noha).
+Webová appka na pohybovou a lezeckou hru: losuje končetinu a k ní barvu, nebo typ chytu.
 
 Kurzy venku · Tomáš Lettovský · [kurzyvenku.cz](https://kurzyvenku.cz)
 
 ## Funkce
+- Dva režimy losování:
+  - **Barvy**: výběr z 9 barev (červená, oranžová, žlutá, zelená, modrá, fialová, růžová, bílá, černá), výchozí 4 základní; volitelně „Nohy volně“ (losují se jen ruce)
+  - **Chyty**: madlo, lišta, spoďák, oblina, stisk, bočák, dírka; losují se jen ruce
+- V obou režimech se v nastavení zaškrtává, co se losuje (aspoň 2 položky)
+- Stejná končetina nejvýš 2× po sobě, stejná kombinace nikdy hned po sobě
 - Změna klepnutím na obrazovku, nebo časovačem s pevným intervalem 5–60 s
 - Český hlas („Levá ruka, červená“), jde vypnout, funguje i se sluchátky
-- Stejná kombinace nepadne dvakrát po sobě
 - Displej se během hry drží rozsvícený (Screen Wake Lock API, pokud ho prohlížeč podporuje)
 - Funguje offline a jde přidat na plochu iPhonu
 
