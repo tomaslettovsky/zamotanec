@@ -159,6 +159,27 @@
     position: fixed; left: 0; bottom: 0; width: 2px; height: 2px;
     opacity: 0.01; pointer-events: none; z-index: -1;
   }
+  .start-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    width: 100%; max-width: 560px;
+  }
+  .tile {
+    border-radius: 18px; padding: 22px 10px; min-height: 150px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    background: var(--tile-bg, var(--dark-2)); color: var(--tile-fg, #fff);
+  }
+  .tile .t-limb { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; opacity: .85; }
+  .tile .t-item { font-size: clamp(26px, 8vw, 46px); font-weight: 900; font-style: italic; text-transform: uppercase; line-height: 1; }
+  .start-title { font-size: 20px; font-weight: 900; text-transform: uppercase; font-style: italic; margin-bottom: 18px; letter-spacing: .5px; }
+  .countdown {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    min-width: 170px; padding: 10px 30px; border-radius: 28px;
+    background: rgba(43,45,49,.92); color: var(--lime); text-align: center;
+    font-size: 110px; font-weight: 900; font-style: italic; line-height: 1;
+    pointer-events: none;
+  }
+  .countdown small { display: block; font-size: 16px; font-style: normal; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
+  .countdown.solo { background: none; font-size: 160px; }
   .paused-badge {
     position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 70px); transform: translateX(-50%);
     background: var(--dark); color: #fff; padding: 18px 30px; border-radius: 16px;
@@ -194,6 +215,14 @@
       <button type="button" class="switch" id="feetSwitch" role="switch" aria-checked="false" aria-label="Nohy volně"></button>
     </div>
     <div class="hint hidden" id="holdsFeetNote">U chytů jsou nohy vždy volně, losují se jen ruce.</div>
+    <div class="divider"></div>
+    <div class="switch-row">
+      <div>
+        <div class="title">Startovní pozice</div>
+        <div class="sub">Na začátku určí všechny končetiny</div>
+      </div>
+      <button type="button" class="switch" id="startPosSwitch" role="switch" aria-checked="true" aria-label="Startovní pozice"></button>
+    </div>
   </section>
 
   <section class="card">
@@ -213,6 +242,24 @@
     </div>
     <input type="range" id="interval" min="5" max="60" step="1" value="15" aria-label="Interval v sekundách">
     <div class="range-scale"><span>5 s</span><span>60 s</span></div>
+    <div class="divider"></div>
+    <div class="switch-row">
+      <div>
+        <div class="title">Odpočet startu</div>
+        <div class="sub">Čas na přípravu, než začne časovač</div>
+      </div>
+      <button type="button" class="switch" id="cdSwitch" role="switch" aria-checked="false" aria-label="Odpočet startu"></button>
+    </div>
+    <div id="cdBox">
+      <div class="interval-row" style="margin-top:14px">
+        <button type="button" class="step-btn" id="cdMinus" aria-label="Kratší odpočet">−</button>
+        <div class="interval-value" id="cdValue">15 s</div>
+        <button type="button" class="step-btn" id="cdPlus" aria-label="Delší odpočet">+</button>
+      </div>
+      <input type="range" id="cdRange" min="10" max="60" step="5" value="15" aria-label="Odpočet v sekundách">
+      <div class="range-scale"><span>10 s</span><span>60 s</span></div>
+      <div class="hint">V posledních 3 sekundách pípá.</div>
+    </div>
   </section>
 
   <section class="card">
@@ -255,9 +302,12 @@
   </div>
 
   <div class="stage" id="stage">
+    <div class="start-title hidden" id="startTitle">Startovní pozice</div>
+    <div class="start-grid hidden" id="startGrid"></div>
     <div class="limb" id="limbText"></div>
     <div class="color-name" id="colorText"></div>
   </div>
+  <div class="countdown hidden" id="countdown"></div>
 
   <div class="bottombar">
     <div id="bottomText"></div>
@@ -318,6 +368,7 @@
     mode: 'tap', interval: 15, voice: true,
     set: 'colors', colors: DEFAULT_COLORS.slice(), holds: DEFAULT_HOLDS.slice(), feetFree: false,
     cheer: true,
+    startPos: true, countdown: false, countdownSec: 15,
   };
   const cleanIds = (arr, all) => Array.isArray(arr) ? all.map(x => x.id).filter(id => arr.includes(id)) : null;
   try {
@@ -330,6 +381,9 @@
     const sh = cleanIds(saved.holds, HOLDS);   if (sh && sh.length >= MIN_ITEMS) settings.holds = sh;
     if (typeof saved.feetFree === 'boolean') settings.feetFree = saved.feetFree;
     if (typeof saved.cheer === 'boolean') settings.cheer = saved.cheer;
+    if (typeof saved.startPos === 'boolean') settings.startPos = saved.startPos;
+    if (typeof saved.countdown === 'boolean') settings.countdown = saved.countdown;
+    if (Number.isFinite(saved.countdownSec)) settings.countdownSec = Math.min(60, Math.max(10, Math.round(saved.countdownSec / 5) * 5));
   } catch (e) { /* bez uložení */ }
   const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) {} };
 
@@ -395,6 +449,11 @@
     intervalValue.textContent = settings.interval + ' s';
     voiceSwitch.setAttribute('aria-checked', String(settings.voice));
     $('cheerSwitch').setAttribute('aria-checked', String(settings.cheer));
+    $('startPosSwitch').setAttribute('aria-checked', String(settings.startPos));
+    $('cdSwitch').setAttribute('aria-checked', String(settings.countdown));
+    $('cdBox').classList.toggle('hidden', !settings.countdown);
+    $('cdRange').value = settings.countdownSec;
+    $('cdValue').textContent = settings.countdownSec + ' s';
   }
   modeBtns.forEach(b => b.addEventListener('click', () => { settings.mode = b.dataset.mode; save(); renderSettings(); }));
   setBtns.forEach(b => b.addEventListener('click', () => { settings.set = b.dataset.set; save(); renderSettings(); }));
@@ -404,6 +463,11 @@
   $('plus').addEventListener('click', () => { settings.interval = Math.min(60, settings.interval + 1); save(); renderSettings(); });
   voiceSwitch.addEventListener('click', () => { settings.voice = !settings.voice; save(); renderSettings(); });
   $('cheerSwitch').addEventListener('click', () => { settings.cheer = !settings.cheer; save(); renderSettings(); });
+  $('startPosSwitch').addEventListener('click', () => { settings.startPos = !settings.startPos; save(); renderSettings(); });
+  $('cdSwitch').addEventListener('click', () => { settings.countdown = !settings.countdown; save(); renderSettings(); });
+  $('cdRange').addEventListener('input', () => { settings.countdownSec = Number($('cdRange').value); save(); renderSettings(); });
+  $('cdMinus').addEventListener('click', () => { settings.countdownSec = Math.max(10, settings.countdownSec - 5); save(); renderSettings(); });
+  $('cdPlus').addEventListener('click', () => { settings.countdownSec = Math.min(60, settings.countdownSec + 5); save(); renderSettings(); });
 
   // ---------- Hlas ----------
   // Hlavní hlas: nahrávky (Web Audio API). Záloha: systémová syntéza řeči.
@@ -540,6 +604,40 @@
     if (cheer) { lastCheer = cheer.id; changesSinceCheer = 0; nextCheerAt = randomCheerGap(); }
   }
 
+  // Startovní pozice: přečte všechny končetiny; vrátí délku (s), nebo null u syntézy.
+  function announceStart(pairs) {
+    stopVoice();
+    if (!settings.voice) return 0;
+    const parts = [];
+    pairs.forEach((p, i) => {
+      parts.push({ key: clipKey(p.limb), gapBefore: i ? 0.35 : 0 });
+      parts.push({ key: clipKey(p.item), gapBefore: GAP });
+    });
+    const played = playClips(parts);
+    if (played === null) {
+      speak(pairs.map(p => p.limb.text + ', ' + p.item.text.toLowerCase()).join('. ') + '.');
+      return null;
+    }
+    return played;
+  }
+
+  // Pípnutí odpočtu (Web Audio, hraje i s vypnutým hlasem)
+  function beep(freq, dur) {
+    if (!actx) return;
+    const go = () => {
+      const t = actx.currentTime + 0.01;
+      const osc = actx.createOscillator(), g = actx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+      g.gain.setValueAtTime(0.5, t + dur - 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(actx.destination);
+      osc.start(t); osc.stop(t + dur + 0.02);
+    };
+    if (actx.state === 'running') go(); else actx.resume().then(go).catch(() => {});
+  }
+
   $('testVoice').addEventListener('click', () => {
     if (!settings.voice) { settings.voice = true; save(); renderSettings(); }
     unlockAudio();
@@ -618,6 +716,8 @@
 
   // ---------- Hra ----------
   let last = null, limbHistory = [], timerId = null, running = false, paused = false;
+  let phase = 'play';          // 'start' = startovní pozice, 'countdown', 'play'
+  let cdLeft = null, cdTimer = null, cdWait = null;
 
   function handsOnly() { return settings.set === 'holds' || settings.feetFree; }
 
@@ -639,7 +739,85 @@
     return pool;
   }
 
+  function showStartPosition() {
+    const limbs = handsOnly() ? LIMBS.filter(l => l.hand) : LIMBS;
+    const list = currentList(), sel = settings[selectedKey()];
+    const items = list.filter(x => sel.includes(x.id));
+    const pairs = limbs.map(l => ({ limb: l, item: items[Math.floor(Math.random() * items.length)] }));
+    const holds = settings.set === 'holds';
+    gameEl.style.backgroundColor = HOLD_LOOK.bg;
+    gameEl.style.setProperty('--fg', '#FFFFFF');
+    gameEl.style.setProperty('--btn', HOLD_LOOK.btn);
+    setPageBackground(HOLD_LOOK.bg);
+    const grid = $('startGrid');
+    grid.innerHTML = '';
+    for (const p of pairs) {
+      const t = document.createElement('div');
+      t.className = 'tile';
+      if (holds) { t.style.setProperty('--tile-bg', '#36383D'); t.style.setProperty('--tile-fg', HOLD_LOOK.fg); }
+      else { t.style.setProperty('--tile-bg', p.item.bg); t.style.setProperty('--tile-fg', p.item.fg); }
+      t.innerHTML = '<div class="t-limb"></div><div class="t-item"></div>';
+      t.firstChild.textContent = p.limb.text;
+      t.lastChild.textContent = p.item.text;
+      grid.appendChild(t);
+    }
+    $('startTitle').classList.remove('hidden');
+    grid.classList.remove('hidden');
+    $('limbText').classList.add('hidden');
+    $('colorText').classList.add('hidden');
+    return announceStart(pairs);
+  }
+
+  function hideStartPosition() {
+    $('startTitle').classList.add('hidden');
+    $('startGrid').classList.add('hidden');
+    $('limbText').classList.remove('hidden');
+    $('colorText').classList.remove('hidden');
+  }
+
+  // ---------- Odpočet ----------
+  function renderCountdown() {
+    const el = $('countdown');
+    if (cdLeft === null) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.classList.toggle('solo', !settings.startPos);
+    el.innerHTML = cdLeft + '<small>' + (settings.startPos ? 'Do pozice' : 'Připrav se') + '</small>';
+  }
+  function startCountdown() {
+    cdWait = null;
+    phase = 'countdown';
+    cdLeft = settings.countdownSec;
+    renderCountdown();
+    tickCountdown();
+  }
+  function tickCountdown() {
+    clearTimeout(cdTimer);
+    if (paused) return;
+    cdTimer = setTimeout(() => {
+      cdLeft--;
+      if (cdLeft > 0) {
+        if (cdLeft <= 3) beep(880, 0.15);
+        renderCountdown();
+        tickCountdown();
+      } else {
+        beep(1320, 0.6);
+        cdLeft = null;
+        renderCountdown();
+        phase = 'play';
+        if (settings.startPos) schedule();   // startovní pozice platí, první změna po intervalu
+        else { draw(); schedule(); }         // bez startovní pozice hned první pokyn
+      }
+    }, 1000);
+  }
+  function clearCountdown() {
+    clearTimeout(cdTimer); clearTimeout(cdWait);
+    cdTimer = cdWait = null; cdLeft = null;
+    renderCountdown();
+  }
+
   function draw() {
+    phase = 'play';
+    hideStartPosition();
     const pool = buildPool();
     const pick = pool[Math.floor(Math.random() * pool.length)];
     last = pick;
@@ -665,7 +843,7 @@
 
   function schedule() {
     clearTimeout(timerId);
-    if (running && !paused && settings.mode === 'timer') {
+    if (running && !paused && settings.mode === 'timer' && phase !== 'countdown') {
       timerId = setTimeout(() => { draw(); schedule(); }, settings.interval * 1000);
     }
   }
@@ -693,13 +871,36 @@
     resetCheers();
     renderGameControls();
     keepAwake();     // v rámci klepnutí, aby iOS zámek i video povolil
-    draw();          // první los hned, v rámci klepnutí (iOS pak povolí hlas)
-    schedule();
+    clearCountdown();
+    hideStartPosition();
+    phase = 'play';
+    const useCountdown = settings.mode === 'timer' && settings.countdown;
+
+    if (settings.startPos) {
+      phase = 'start';
+      const voiceLen = showStartPosition();   // v rámci klepnutí (iOS pak povolí zvuk)
+      if (useCountdown) {
+        // Odpočet začne, až hlas dočte startovní pozici.
+        phase = 'countdown';
+        cdWait = setTimeout(startCountdown, (voiceLen ? voiceLen + 0.3 : 0) * 1000);
+      } else schedule();
+    } else if (useCountdown) {
+      gameEl.style.backgroundColor = HOLD_LOOK.bg;
+      gameEl.style.setProperty('--fg', '#FFFFFF');
+      setPageBackground(HOLD_LOOK.bg);
+      $('limbText').textContent = ''; $('colorText').classList.add('hidden');
+      startCountdown();
+    } else {
+      draw();          // první los hned, v rámci klepnutí (iOS pak povolí hlas)
+      schedule();
+    }
   }
 
   function stop() {
     running = false; paused = false;
     clearTimeout(timerId);
+    clearCountdown();
+    hideStartPosition();
     stopVoice();
     releaseAwake();
     setPageBackground('');
@@ -715,7 +916,15 @@
     paused = !paused;
     if (paused) stopVoice();
     renderGameControls();
-    schedule();
+    if (phase === 'countdown') {
+      if (cdWait) {                 // čekání na dočtení startovní pozice
+        clearTimeout(cdWait); cdWait = null;
+        if (!paused) startCountdown();
+        else { cdLeft = settings.countdownSec; renderCountdown(); }
+      } else if (cdLeft !== null) {
+        if (paused) clearTimeout(cdTimer); else tickCountdown();
+      } else if (!paused) startCountdown();
+    } else schedule();
   });
   $('gameVoiceBtn').addEventListener('click', (e) => {
     e.stopPropagation();

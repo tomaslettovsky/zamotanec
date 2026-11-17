@@ -9,6 +9,8 @@ Kurzy venku · Tomáš Lettovský · [kurzyvenku.cz](https://kurzyvenku.cz)
   - **Barvy**: výběr z 9 barev (červená, oranžová, žlutá, zelená, modrá, fialová, růžová, bílá, černá), výchozí 4 základní; volitelně „Nohy volně“ (losují se jen ruce)
   - **Chyty**: madlo, lišta, spoďák, oblina, stisk, bočák, dírka; losují se jen ruce
 - V obou režimech se v nastavení zaškrtává, co se losuje (aspoň 2 položky)
+- Startovní pozice (volitelná): na začátku určí všechny končetiny (u chytů a s „Nohy volně“ jen ruce), hlas je přečte
+- Odpočet startu (jen s časovačem, volitelný, 10–60 s po 5 s): začne po dočtení startovní pozice, v posledních 3 s pípá, pak se rozběhne časovač
 - Stejná končetina nejvýš 2× po sobě, stejná kombinace nikdy hned po sobě
 - Změna klepnutím na obrazovku, nebo časovačem s pevným intervalem 5–60 s
 - Hlas: nahrávky Tomáše (`audio/`), jde vypnout, funguje i se sluchátky. Když se nahrávky nenačtou, použije se systémová syntéza řeči.
