@@ -225,6 +225,10 @@
     </div>
     <button type="button" class="link-btn" id="testVoice">Vyzkoušet hlas</button>
     <div class="voice-note">Když hlas mlčí, zkontroluj hlasitost a vypni tichý režim.</div>
+    <!-- DOČASNÉ: test výslovnosti spoďáku, po výběru odstranit -->
+    <div class="divider"></div>
+    <div class="label">Test výslovnosti „spoďák“ (dočasné)</div>
+    <div class="chips" id="sayTest"></div>
     <div class="voice-note hidden" id="voiceNote">
       V telefonu jsem nenašel český hlas, takže hlášení může znít s cizím přízvukem.
       Český hlas se stahuje v Nastavení iPhonu v sekci Zpřístupnění, v části o čtení obsahu, pod položkou Hlasy.
@@ -423,6 +427,19 @@
     u.rate = 1;
     synth.speak(u);
   }
+  // DOČASNÉ: test výslovnosti spoďáku
+  ['spoďák', 'spoďják', 'spodďák', 'spo-ďák', 'spoďak'].forEach((v, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.setAttribute('aria-pressed', 'true');
+    b.textContent = (i + 1) + '. ' + v;
+    b.addEventListener('click', () => {
+      if (!settings.voice) { settings.voice = true; save(); renderSettings(); }
+      pickVoice();
+      speak('Levá ruka, ' + v + '.');
+    });
+    $('sayTest').appendChild(b);
+  });
+
   $('testVoice').addEventListener('click', () => {
     if (!settings.voice) { settings.voice = true; save(); renderSettings(); }
     pickVoice();
